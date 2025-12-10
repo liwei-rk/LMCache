@@ -60,6 +60,45 @@ python disagg_proxy_server.py \
     --decoder-init-port  "7300,7301,7302,7303,7304,7305,7306,7307" \
     --decoder-alloc-port "7400,7401,7402,7403,7404,7405,7406,7407"
 ```
+
+#### To support bounded prefiller and decoder for the same session
+
+For xPyD multi-round QA scenoria, proxy can provide the clients with bounded prefiller/decoder for the same session,
+other than round-robin.
+
+http requests should provide (key:value) pair,such as (session-id:uid) for proxy to bind prefiller/decoder during the session:
+
+- value: the unique identifier for proxy to bind the prefiller/decoder in a session
+- key:   the field name for proxy to extract the uid from http header, the field name should equal with the $CLINET_BOUND_KEY
+
+proxy will use the CLIENT_BOUND_KEY to extract the uid as the session-id from http request.
+
+```
+export CLIENT_BOUND="true"
+# optional, configure the meaningful field in http request header as the session-id, "session-id" is the default field name
+export CLINET_BOUND_KEY="session-id"
+python disagg_proxy_server.py \
+    .... \ # other arguments
+```
+
+```
+# client side, set the kv pair,such as (session-id: uid) in header
+# openai python sdk, put the kv pair in extra_headers param
+import uuid
+uid = str(uuid.uuid4()) # the uid can be changed to any other unique identifier string for a session
+extra_headers = {"session-id" : uid}
+response = await self.client.chat.completions.create(
+    messages=messages,
+    model=self.model,
+    temperature=0,
+    stream=True,
+    max_tokens=max_tokens,
+    stream_options={"include_usage": True},
+    extra_headers=extra_headers,
+    extra_body=extra_body
+)
+```
+
 #### Example benchmark command
 
 If you have vLLM's serving benchmark tool, you can run the following command to benchmark the serving performance of the disaggregated prefill setup:
